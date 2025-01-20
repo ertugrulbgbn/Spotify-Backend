@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Top Tracks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: white;
+            padding: 20px;
+        }
+        .track {
+            background-color: #282828;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .popularity {
+            color: #1DB954;
+        }
+    </style>
+</head>
+<body>
+    <h1>En Çok Dinlediğiniz Şarkılar</h1>
+    {% for track in tracks %}
+    <div class="track">
+        <h3>{{ track.name }}</h3>
+        <p>Sanatçı: {{ track.artist }}</p>
+        <p>Albüm: {{ track.album }}</p>
+        <p class="popularity">Popülerlik: {{ track.popularity }}/100</p>
+    </div>
+    {% endfor %}
+</body>
+</html>

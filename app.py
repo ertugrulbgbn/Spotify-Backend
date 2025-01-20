@@ -1,66 +1,61 @@
-from flask import Flask, redirect, request, jsonify
-from spotipy import Spotify
+from flask import Flask, redirect, request, jsonify, render_template
+import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import requests
 import os
 
 app = Flask(__name__)
 
-# Spotify API Credentials
-CLIENT_ID = "192f887a420c413ea18270fec94300ec"
-CLIENT_SECRET = "ba6deb9f7d944260bcf3799dc79a9d6d"
+CLIENT_ID = "CLIENT_ID giriniz"
+CLIENT_SECRET = "CLIENT_SECRET giriniz"
 REDIRECT_URI = "http://localhost:5000/callback"
+SCOPE = "user-top-read playlist-read-private user-read-private user-read-email"
 
-# Spotify Auth URL
-SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
-SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
+#scope kısmınıda sonrasında top100 e göre düzenleyeceğiz
+#not olarak şuna dikkat! normal spotify hesabınıza tarayıcıda girmiş olun, birde kullanıcıyı soldaki dosyalarda vermiş olduğum görseldeki gibi sisteme eklemesini yapınız sonrasında marşı verin gitsin :)
 
-# Authorization Scope
-SCOPE = "playlist-read-private"
+# SpotifyOAuth nesnesini oluştur
+auth_manager = SpotifyOAuth(
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    redirect_uri=REDIRECT_URI,
+    scope=SCOPE,
+    cache_path=".spotifycache"
+)
 
 @app.route("/")
+def index():
+    return render_template('index.html')
+
+@app.route("/login")
 def login():
-    # Construct the Spotify authorization URL
-    auth_url = f"{SPOTIFY_AUTH_URL}?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={SCOPE}"
+    auth_url = auth_manager.get_authorize_url()
     return redirect(auth_url)
 
 @app.route("/callback")
 def callback():
-    # Step 1: Get the authorization code from the query parameters
-    code = request.args.get("code")
-
-    if not code:
-        return jsonify({"error": "Authorization code not found."}), 400
-
-    # Step 2: Exchange the authorization code for an access token
-    token_data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": REDIRECT_URI,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    }
-
-    # Send the request to Spotify's token endpoint
-    response = requests.post(SPOTIFY_TOKEN_URL, data=token_data)
-
-    # Step 3: Check if the response is successful
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to get access token.", "details": response.json()}), response.status_code
-
-    # Step 4: Extract the access token from the response
-    access_token = response.json().get("access_token")
-    refresh_token = response.json().get("refresh_token")
-
-    # Log the access token and refresh token (you can store them for future use)
-    print("Access Token:", access_token)
-    print("Refresh Token:", refresh_token)
-
-    # Step 5: Return the access token and refresh token as JSON
-    return jsonify({
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    })
+    code = request.args.get('code')
+    token_info = auth_manager.get_access_token(code)
+    
+    if token_info:
+        sp = spotipy.Spotify(auth_manager=auth_manager)
+        try:
+            top_tracks = sp.current_user_top_tracks(limit=50, offset=0, time_range='medium_term')
+            track_list = []
+            
+            for track in top_tracks['items']:
+                track_info = {
+                    'name': track['name'],
+                    'artist': track['artists'][0]['name'],
+                    'album': track['album']['name'],
+                    'popularity': track['popularity']
+                }
+                track_list.append(track_info)
+                
+            return render_template('results.html', tracks=track_list)
+        except Exception as e:
+            return f"Hata oluştu: {str(e)}"
+    
+    return "Token alınamadı"
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
